@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-desk-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ui-desk
+  template:
+    metadata:
+      labels:
+        app: ui-desk
+    spec:
+      containers:
+        - name: ui-desk
+          image: 679625721250.dkr.ecr.eu-west-1.amazonaws.com/marketpulse-ui-desk:latest
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "my-kafka:9092"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "my-kafka:9092"
+            # Add other environment variables as needed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui-desk-service
+spec:
+  selector:
+    app: ui-desk
+  ports:
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+  type: ClusterIP 

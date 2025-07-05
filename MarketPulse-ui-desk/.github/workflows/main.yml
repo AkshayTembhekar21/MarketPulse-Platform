@@ -1,0 +1,50 @@
+name: Build and Deploy ui-desk
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build ui-desk
+        run: mvn clean package -B
+
+      - name: Debug ui-desk target folder
+        run: ls -la target/ || echo "Target folder not found"
+
+      - name: Upload ui-desk JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-desk-jar
+          path: target/*.jar
+        continue-on-error: true
+
+      - name: Configure AWS Credentials
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Upload ui-desk JAR to S3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: aws s3 cp target/*.jar s3://${{ secrets.AWS_S3_BUCKET }}/ui-desk/ --region ap-south-1
+        continue-on-error: true

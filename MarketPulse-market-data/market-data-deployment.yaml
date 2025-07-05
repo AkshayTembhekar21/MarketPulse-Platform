@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-data-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: market-data
+  template:
+    metadata:
+      labels:
+        app: market-data
+    spec:
+      containers:
+        - name: market-data
+          image: 679625721250.dkr.ecr.eu-west-1.amazonaws.com/marketpulse-market-data:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "my-kafka:9092"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "my-kafka:9092"
+            - name: FINNHUB_API_KEY
+              value: "d0remd9r01qn4tji8850d0remd9r01qn4tji885g"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-data-service
+spec:
+  selector:
+    app: market-data
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP 
