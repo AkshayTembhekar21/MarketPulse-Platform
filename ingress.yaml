@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: marketpulse-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/success-codes: '200,302'
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ui-desk-service
+                port:
+                  number: 8082
+          - path: /api/market-data
+            pathType: Prefix
+            backend:
+              service:
+                name: market-data-service
+                port:
+                  number: 8080
+          - path: /api/processor
+            pathType: Prefix
+            backend:
+              service:
+                name: processor-service
+                port:
+                  number: 8080 

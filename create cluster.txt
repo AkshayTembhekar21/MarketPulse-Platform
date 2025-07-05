@@ -1,0 +1,84 @@
+Create docker images
+----------------------
+# Build new image
+docker build -t marketpulse-market-data:latest .
+# Tag for ECR
+docker tag marketpulse-market-data:latest 679625721250.dkr.ecr.eu-west-1.amazonaws.com/marketpulse-market-data:latest
+# Push to ECR
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 679625721250.dkr.ecr.eu-west-1.amazonaws.com
+docker push 679625721250.dkr.ecr.eu-west-1.amazonaws.com/marketpulse-market-data:latest
+
+create cluster
+eksctl create cluster --name marketpulse-practice --region eu-west-1 --nodegroup-name marketpulse-nodes --node-type t3.small --nodes 2 --nodes-min 1 --nodes-max 3 --managed
+What This Does:
+✅ Creates EKS cluster named marketpulse-practice
+✅ Creates node group automatically (no separate step needed!)
+✅ Uses 2 t3.small instances (cost-effective)
+✅ Sets up networking automatically
+
+# After cluster is created
+eksctl get cluster --region eu-west-1
+# Should show: ACTIVE
+eksctl get nodegroup --cluster marketpulse-practice --region eu-west-1  
+# Should show: ACTIVE
+
+🚀 Step 2: Configure kubectl for Your Cluster
+# Update kubeconfig to connect to your cluster
+aws eks update-kubeconfig --name marketpulse-practice --region eu-west-1
+
+# Verify connection
+kubectl get nodes
+
+helm install my-kafka oci://registry-1.docker.io/bitnamicharts/kafka --set replicaCount=3 --set persistence.enabled=false --set dataPersistence.enabled=false --set logPersistence.enabled=false --set zookeeper.enabled=false --set kraft.enabled=true --set service.type=ClusterIP --set listeners.client.protocol=PLAINTEXT --set listeners.client.port=9092 --set advertisedListeners.client=PLAINTEXT://my-kafka:9092 --set auth.enabled=false
+
+Since we have limited storage space, kafka is failing to createe node as it cant proceed with persistance storage claims to overcome those issues
+do the following
+# 1. Check what PVCs were created
+kubectl get pvc
+
+# 2. Delete all PVCs (this will free up the stuck pods)
+kubectl delete pvc --all
+
+# 3. Uninstall the current Kafka installation
+helm uninstall my-kafka
+
+# 4. Install Kafka using the kafka-values.yaml file (which has persistence disabled)
+helm install my-kafka oci://registry-1.docker.io/bitnamicharts/kafka -f kafka-values.yaml
+
+kafka-values.yaml is as follows.
+persistence:
+  enabled: false  # ← This prevents PVC creation
+logPersistence:
+  enabled: false  # ← This prevents log PVC creation
+
+Step 3: The real deal
+i. kubectl apply -f MarketPulse-market-data/market-data-deployment.yaml
+deployment.apps/market-data-deployment created
+service/market-data-service created
+ii. kubectl apply -f MarketPulse-processor/processor-deployment.yaml
+deployment.apps/processor-deployment created
+service/processor-service created
+iii. kubectl apply -f MarketPulse-ui-desk/ui-desk-deployment.yaml
+deployment.apps/ui-desk-deployment created
+service/ui-desk-service created
+
+✅ Step 5: Verify & Access
+kubectl get pods
+kubectl get services
+kubectl get service ui-desk-service - this has Type as LOADBALANCER
+# Access UI at LoadBalancer URL
+
+
+
+Scale down: kubectl scale deployment market-data-deployment --replicas=0
+Scale down: kubectl scale deployment processor-deployment --replicas=0
+Scale down: kubectl scale deployment ui-desk-deployment --replicas=0
+Delete services: kubectl delete service ui-desk-service market-data-service processor-service
+Delete deployments: kubectl delete deployment market-data-deployment processor-deployment ui-desk-deployment
+Uninstall Kafka: helm uninstall my-kafka
+Delete PVCs: kubectl delete pvc --all
+Delete cluster: eksctl delete cluster --name marketpulse-practice --region eu-west-1
+
+
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=marketpulse-practice --set serviceAccount.create=false -set serviceAccount.name=aws-load-balancer-controller
