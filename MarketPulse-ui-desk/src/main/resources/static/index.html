@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -183,15 +182,60 @@
             </div>
         </div>
 
-        <div class="trades-container">
-            <div class="trades-header">
-                <h2>📊 Live Trades</h2>
-                <div class="trade-count" id="tradeCount">0 trades</div>
+        <!-- Navigation Bar -->
+        <nav style="display: flex; gap: 20px; justify-content: center; margin-bottom: 20px;">
+            <button id="navLiveTrades" class="nav-btn" style="padding: 10px 20px; border-radius: 8px; border: none; background: #3498db; color: white; font-weight: bold; cursor: pointer;">Live Trades</button>
+            <button id="navP2PTrading" class="nav-btn" style="padding: 10px 20px; border-radius: 8px; border: none; background: #764ba2; color: white; font-weight: bold; cursor: pointer;">P2P Trading</button>
+        </nav>
+
+        <!-- Live Trades Section -->
+        <div id="liveTradesSection">
+            <div class="trades-container">
+                <div class="trades-header">
+                    <h2>📊 Live Trades</h2>
+                    <div class="trade-count" id="tradeCount">0 trades</div>
+                </div>
+                <div class="trades-list" id="tradesList">
+                    <div class="empty-state">
+                        <h3>Waiting for trade data...</h3>
+                        <p>The system will display real-time Bitcoin trades as they come in.</p>
+                    </div>
+                </div>
             </div>
-            <div class="trades-list" id="tradesList">
-                <div class="empty-state">
-                    <h3>Waiting for trade data...</h3>
-                    <p>The system will display real-time Bitcoin trades as they come in.</p>
+        </div>
+
+        <!-- P2P Trading Section (initially hidden) -->
+        <div id="p2pTradingSection" style="display: none;">
+            <div class="trades-container">
+                <div class="trades-header">
+                    <h2>🤝 P2P Trading</h2>
+                </div>
+                <!-- Partner Management -->
+                <div style="margin-bottom: 20px;">
+                    <h3>Trading Partners</h3>
+                    <form id="addPartnerForm" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="partnerInput" placeholder="Enter partner username" style="flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                        <button type="submit" style="padding: 8px 16px; border-radius: 5px; border: none; background: #27ae60; color: white; font-weight: bold; cursor: pointer;">Add Partner</button>
+                    </form>
+                    <ul id="partnerList" style="list-style: none; padding-left: 0;"></ul>
+                </div>
+                <!-- P2P Trades List -->
+                <div style="margin-bottom: 20px;">
+                    <h3>Active P2P Trades</h3>
+                    <ul id="p2pTradesList" style="list-style: none; padding-left: 0;"></ul>
+                </div>
+                <!-- Negotiation/Chat UI -->
+                <div>
+                    <h3>Trade Negotiation</h3>
+                    <div id="negotiationBox" style="background: #f8f9fa; border-radius: 10px; padding: 15px; min-height: 100px; margin-bottom: 10px;"></div>
+                    <form id="negotiationForm" style="display: flex; gap: 10px;">
+                        <input type="text" id="negotiationInput" placeholder="Enter your offer or message" style="flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                        <button type="submit" style="padding: 8px 16px; border-radius: 5px; border: none; background: #3498db; color: white; font-weight: bold; cursor: pointer;">Send</button>
+                    </form>
+                    <div style="margin-top: 10px;">
+                        <button id="acceptTradeBtn" style="padding: 8px 16px; border-radius: 5px; border: none; background: #27ae60; color: white; font-weight: bold; cursor: pointer; margin-right: 10px;">Accept</button>
+                        <button id="rejectTradeBtn" style="padding: 8px 16px; border-radius: 5px; border: none; background: #e74c3c; color: white; font-weight: bold; cursor: pointer;">Reject</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -353,6 +397,25 @@
         // Initialize the dashboard when page loads
         document.addEventListener('DOMContentLoaded', () => {
             new TradingDashboard();
+
+            // Navigation logic
+            const navLiveTrades = document.getElementById('navLiveTrades');
+            const navP2PTrading = document.getElementById('navP2PTrading');
+            const liveTradesSection = document.getElementById('liveTradesSection');
+            const p2pTradingSection = document.getElementById('p2pTradingSection');
+
+            navLiveTrades.addEventListener('click', () => {
+                liveTradesSection.style.display = '';
+                p2pTradingSection.style.display = 'none';
+                navLiveTrades.style.background = '#3498db';
+                navP2PTrading.style.background = '#764ba2';
+            });
+            navP2PTrading.addEventListener('click', () => {
+                liveTradesSection.style.display = 'none';
+                p2pTradingSection.style.display = '';
+                navLiveTrades.style.background = '#764ba2';
+                navP2PTrading.style.background = '#3498db';
+            });
         });
     </script>
 </body>
