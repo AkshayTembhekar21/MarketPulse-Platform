@@ -57,6 +57,9 @@ Start-Service "Processor Service" "MarketPulse-processor" 8082
 Start-Sleep -Seconds 2
 
 Start-Service "UI Desk Service" "MarketPulse-ui-desk" 8080
+Start-Sleep -Seconds 2
+
+Start-Service "P2P Trading Service" "marketpulse-p2p-trading" 8083
 
 Write-Host ""
 Write-Host "🎉 All services started!" -ForegroundColor Green
@@ -66,6 +69,7 @@ Write-Host "   UI Dashboard: http://localhost:8080" -ForegroundColor White
 Write-Host "   Kafka UI: http://localhost:9000" -ForegroundColor White
 Write-Host "   Market Data API: http://localhost:8081" -ForegroundColor White
 Write-Host "   Processor API: http://localhost:8082" -ForegroundColor White
+Write-Host "   P2P Trading API: http://localhost:8083" -ForegroundColor White
 Write-Host ""
 Write-Host "Press any key to exit..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") 

@@ -4,7 +4,7 @@ A real-time trading platform built with microservices architecture using Spring 
 
 ## 🏗️ Architecture
 
-This project consists of 4 independent microservices:
+This project consists of 5 independent microservices:
 
 ### 📊 Market Data Service (`MarketPulse-market-data/`)
 - **Purpose**: Fetches real-time market data from external APIs
@@ -31,6 +31,16 @@ This project consists of 4 independent microservices:
   - WebSocket communication for live updates
   - Kafka consumer for trade updates
   - Static web interface
+
+### 🤝 P2P Trading Service (`marketpulse-p2p-trading/`)
+- **Purpose**: Peer-to-peer trading platform for direct user negotiations
+- **Technology**: Spring Boot, Kafka, JPA, WebSocket, H2 Database
+- **Features**:
+  - P2P trade request management
+  - Real-time negotiation via WebSocket
+  - User and partner management
+  - Kafka integration for trade events
+  - Direct trade confirmations
 
 ### ⚙️ Infrastructure Config (`MarketPulse-config/`)
 - **Purpose**: Infrastructure and development environment setup
@@ -66,6 +76,10 @@ mvn spring-boot:run
 # UI Desk Service
 cd MarketPulse-ui-desk
 mvn spring-boot:run
+
+# P2P Trading Service
+cd marketpulse-p2p-trading
+mvn spring-boot:run
 ```
 
 ### 3. Access Services
@@ -73,6 +87,7 @@ mvn spring-boot:run
 - **Kafka UI**: http://localhost:9000
 - **Market Data API**: http://localhost:8081 (market-data service)
 - **Processor API**: http://localhost:8082 (processor service)
+- **P2P Trading API**: http://localhost:8083 (p2p-trading service)
 
 ## 📁 Project Structure
 
@@ -81,6 +96,7 @@ MarketPulse/
 ├── MarketPulse-market-data/     # Market data streaming service
 ├── MarketPulse-processor/       # Data processing and trade management
 ├── MarketPulse-ui-desk/         # Web-based trading interface
+├── marketpulse-p2p-trading/     # P2P trading platform
 ├── MarketPulse-config/          # Infrastructure and development setup
 ├── kafka-values.yaml            # Kubernetes Kafka configuration
 ├── ingress.yaml                 # Kubernetes ingress configuration
@@ -100,6 +116,7 @@ Each service includes a Dockerfile for containerized deployment:
 - `MarketPulse-market-data/Dockerfile`
 - `MarketPulse-processor/Dockerfile`
 - `MarketPulse-ui-desk/Dockerfile`
+- `marketpulse-p2p-trading/Dockerfile`
 
 ## ☸️ Kubernetes Deployment
 
@@ -107,6 +124,7 @@ Kubernetes deployment files are provided:
 - `market-data-deployment.yaml`
 - `processor-deployment.yaml`
 - `ui-desk-deployment.yaml`
+- `p2p-trading-deployment.yaml`
 - `ingress.yaml`
 - `kafka-values.yaml`
 
@@ -123,6 +141,7 @@ Kubernetes deployment files are provided:
 cd MarketPulse-market-data && mvn test
 cd MarketPulse-processor && mvn test
 cd MarketPulse-ui-desk && mvn test
+cd marketpulse-p2p-trading && mvn test
 ```
 
 ## 🤝 Contributing

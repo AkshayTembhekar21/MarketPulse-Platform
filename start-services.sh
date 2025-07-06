@@ -61,6 +61,9 @@ start_service "Processor Service" "MarketPulse-processor" 8082
 sleep 2
 
 start_service "UI Desk Service" "MarketPulse-ui-desk" 8080
+sleep 2
+
+start_service "P2P Trading Service" "marketpulse-p2p-trading" 8083
 
 echo ""
 echo "🎉 All services started!"
@@ -70,5 +73,6 @@ echo "   UI Dashboard: http://localhost:8080"
 echo "   Kafka UI: http://localhost:9000"
 echo "   Market Data API: http://localhost:8081"
 echo "   Processor API: http://localhost:8082"
+echo "   P2P Trading API: http://localhost:8083"
 echo ""
 echo "To stop all services, run: pkill -f 'spring-boot:run'" 
