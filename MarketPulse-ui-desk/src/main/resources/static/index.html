@@ -209,6 +209,15 @@
             <div class="trades-container">
                 <div class="trades-header">
                     <h2>🤝 P2P Trading</h2>
+                    <div style="margin-bottom: 15px;">
+                        <label for="currentUserId" style="font-weight: bold; margin-right: 10px;">Current User ID:</label>
+                        <select id="currentUserId" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                            <option value="1">User 1</option>
+                            <option value="2">User 2</option>
+                            <option value="3">User 3</option>
+                        </select>
+                        <button onclick="p2pTrading.switchUser()" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Switch User</button>
+                    </div>
                 </div>
                 <!-- Partner Management -->
                 <div style="margin-bottom: 20px;">
@@ -394,9 +403,338 @@
             }
         }
 
+        // P2P Trading functionality
+        class P2PTrading {
+            constructor() {
+                this.currentUserId = 1; // Default user ID for testing
+                this.currentTradeId = null;
+                this.p2pSocket = null;
+                this.partners = [];
+                this.p2pTrades = [];
+                
+                this.initializeP2P();
+            }
+
+            initializeP2P() {
+                // Initialize P2P WebSocket connection
+                this.connectP2PWebSocket();
+                
+                // Set up event listeners
+                this.setupEventListeners();
+                
+                // Load initial data
+                this.loadPartners();
+                this.loadP2PTrades();
+            }
+
+            connectP2PWebSocket() {
+                try {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws/p2p`;
+                    
+                    this.p2pSocket = new WebSocket(wsUrl);
+                    
+                    this.p2pSocket.onopen = () => {
+                        console.log('✅ P2P WebSocket connected');
+                        this.addNegotiationMessage('System', 'Connected to P2P trading');
+                    };
+                    
+                    this.p2pSocket.onmessage = (event) => {
+                        this.handleP2PMessage(event.data);
+                    };
+                    
+                    this.p2pSocket.onclose = () => {
+                        console.log('❌ P2P WebSocket disconnected');
+                        this.addNegotiationMessage('System', 'Disconnected from P2P trading');
+                    };
+                    
+                } catch (error) {
+                    console.error('P2P WebSocket connection error:', error);
+                }
+            }
+
+            setupEventListeners() {
+                // Add partner form
+                const addPartnerForm = document.getElementById('addPartnerForm');
+                addPartnerForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.addPartner();
+                });
+
+                // Negotiation form
+                const negotiationForm = document.getElementById('negotiationForm');
+                negotiationForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendNegotiationMessage();
+                });
+
+                // Accept/Reject buttons
+                document.getElementById('acceptTradeBtn').addEventListener('click', () => {
+                    this.acceptTrade();
+                });
+
+                document.getElementById('rejectTradeBtn').addEventListener('click', () => {
+                    this.rejectTrade();
+                });
+            }
+
+            async addPartner() {
+                const partnerInput = document.getElementById('partnerInput');
+                const partnerUsername = partnerInput.value.trim();
+                
+                if (!partnerUsername) return;
+
+                try {
+                    // First create the partner user
+                    const userResponse = await fetch('http://localhost:8083/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: partnerUsername,
+                            email: partnerUsername + '@example.com',
+                            fullName: 'Partner ' + partnerUsername,
+                            status: 'ACTIVE'
+                        })
+                    });
+                    
+                    const newUser = await userResponse.json();
+                    
+                    // Then add as partner
+                    const partnerResponse = await fetch('http://localhost:8083/partners', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: this.currentUserId,
+                            partnerId: newUser.id,
+                            status: 'active'
+                        })
+                    });
+                    
+                    const partner = await partnerResponse.json();
+                    this.partners.push(partner);
+                    this.renderPartners();
+                    partnerInput.value = '';
+                    
+                } catch (error) {
+                    console.error('Error adding partner:', error);
+                    alert('Error adding partner: ' + error.message);
+                }
+            }
+
+            async loadPartners() {
+                try {
+                    const response = await fetch(`http://localhost:8083/partners/${this.currentUserId}`);
+                    this.partners = await response.json();
+                    this.renderPartners();
+                } catch (error) {
+                    console.error('Error loading partners:', error);
+                }
+            }
+
+            renderPartners() {
+                const partnerList = document.getElementById('partnerList');
+                partnerList.innerHTML = '';
+                
+                this.partners.forEach(partner => {
+                    const li = document.createElement('li');
+                    li.style.cssText = 'padding: 8px; margin: 5px 0; background: #e9ecef; border-radius: 5px; cursor: pointer;';
+                    li.textContent = `Partner ID: ${partner.partnerId} (${partner.status})`;
+                    li.onclick = () => this.initiateTradeWithPartner(partner.partnerId);
+                    partnerList.appendChild(li);
+                });
+            }
+
+            async initiateTradeWithPartner(partnerId) {
+                const tradeData = {
+                    senderId: this.currentUserId,
+                    receiverId: partnerId,
+                    instrument: 'BTC',
+                    quantity: 1.0,
+                    price: 50000.0,
+                    tradeType: 'BUY',
+                    description: 'P2P trade initiated from UI'
+                };
+
+                try {
+                    const response = await fetch('http://localhost:8083/trades/initiate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(tradeData)
+                    });
+                    
+                    const trade = await response.json();
+                    this.currentTradeId = trade.id;
+                    this.addNegotiationMessage('System', `Trade #${trade.id} initiated with Partner ${partnerId}`);
+                    this.loadP2PTrades();
+                    
+                } catch (error) {
+                    console.error('Error initiating trade:', error);
+                    alert('Error initiating trade: ' + error.message);
+                }
+            }
+
+            async loadP2PTrades() {
+                try {
+                    const response = await fetch(`http://localhost:8083/trades/${this.currentUserId}`);
+                    this.p2pTrades = await response.json();
+                    this.renderP2PTrades();
+                } catch (error) {
+                    console.error('Error loading P2P trades:', error);
+                }
+            }
+
+            renderP2PTrades() {
+                const p2pTradesList = document.getElementById('p2pTradesList');
+                p2pTradesList.innerHTML = '';
+                
+                this.p2pTrades.forEach(trade => {
+                    const li = document.createElement('li');
+                    li.style.cssText = 'padding: 10px; margin: 8px 0; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;';
+                    li.innerHTML = `
+                        <strong>Trade #${trade.id}</strong> - ${trade.status}<br>
+                        ${trade.tradeType} ${trade.quantity} ${trade.instrument} @ $${trade.price}<br>
+                        From: ${trade.senderId} To: ${trade.receiverId}<br>
+                        Created: ${new Date(trade.createdAt).toLocaleString()}
+                        <button onclick="p2pTrading.selectTrade(${trade.id})" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Select</button>
+                    `;
+                    p2pTradesList.appendChild(li);
+                });
+            }
+
+            selectTrade(tradeId) {
+                this.currentTradeId = tradeId;
+                this.addNegotiationMessage('System', `Selected Trade #${tradeId} for negotiation`);
+                this.loadTradeDetails(tradeId);
+            }
+
+            async loadTradeDetails(tradeId) {
+                try {
+                    const response = await fetch(`http://localhost:8083/trades/trade/${tradeId}`);
+                    const trade = await response.json();
+                    
+                    // Display negotiation history
+                    const negotiationBox = document.getElementById('negotiationBox');
+                    negotiationBox.innerHTML = '';
+                    
+                    trade.negotiationHistory.forEach(message => {
+                        this.addNegotiationMessage('History', message);
+                    });
+                    
+                } catch (error) {
+                    console.error('Error loading trade details:', error);
+                }
+            }
+
+            async sendNegotiationMessage() {
+                const input = document.getElementById('negotiationInput');
+                const message = input.value.trim();
+                
+                if (!message || !this.currentTradeId) return;
+
+                try {
+                    const response = await fetch(`http://localhost:8083/trades/${this.currentTradeId}/negotiate?userId=${this.currentUserId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: message
+                    });
+                    
+                    const trade = await response.json();
+                    this.addNegotiationMessage(`User ${this.currentUserId}`, message);
+                    input.value = '';
+                    this.loadP2PTrades();
+                    
+                } catch (error) {
+                    console.error('Error sending negotiation message:', error);
+                    alert('Error sending message: ' + error.message);
+                }
+            }
+
+            async acceptTrade() {
+                if (!this.currentTradeId) {
+                    alert('Please select a trade first');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`http://localhost:8083/trades/${this.currentTradeId}/accept?userId=${this.currentUserId}`, {
+                        method: 'POST'
+                    });
+                    
+                    const trade = await response.json();
+                    this.addNegotiationMessage('System', `Trade #${this.currentTradeId} accepted!`);
+                    this.loadP2PTrades();
+                    
+                } catch (error) {
+                    console.error('Error accepting trade:', error);
+                    alert('Error accepting trade: ' + error.message);
+                }
+            }
+
+            async rejectTrade() {
+                if (!this.currentTradeId) {
+                    alert('Please select a trade first');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`http://localhost:8083/trades/${this.currentTradeId}/reject?userId=${this.currentUserId}`, {
+                        method: 'POST'
+                    });
+                    
+                    const trade = await response.json();
+                    this.addNegotiationMessage('System', `Trade #${this.currentTradeId} rejected!`);
+                    this.loadP2PTrades();
+                    
+                } catch (error) {
+                    console.error('Error rejecting trade:', error);
+                    alert('Error rejecting trade: ' + error.message);
+                }
+            }
+
+            addNegotiationMessage(sender, message) {
+                const negotiationBox = document.getElementById('negotiationBox');
+                const messageDiv = document.createElement('div');
+                messageDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #e9ecef; border-radius: 5px;';
+                messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+                negotiationBox.appendChild(messageDiv);
+                negotiationBox.scrollTop = negotiationBox.scrollHeight;
+            }
+
+            handleP2PMessage(data) {
+                try {
+                    const message = JSON.parse(data);
+                    this.addNegotiationMessage('P2P Update', JSON.stringify(message));
+                } catch (error) {
+                    console.error('Error parsing P2P message:', error);
+                }
+            }
+
+            switchUser() {
+                const userIdSelect = document.getElementById('currentUserId');
+                this.currentUserId = parseInt(userIdSelect.value);
+                this.currentTradeId = null;
+                
+                // Clear current data and reload
+                this.partners = [];
+                this.p2pTrades = [];
+                this.renderPartners();
+                this.renderP2PTrades();
+                
+                // Reload data for new user
+                this.loadPartners();
+                this.loadP2PTrades();
+                
+                // Clear negotiation box
+                const negotiationBox = document.getElementById('negotiationBox');
+                negotiationBox.innerHTML = '';
+                this.addNegotiationMessage('System', `Switched to User ${this.currentUserId}`);
+            }
+        }
+
         // Initialize the dashboard when page loads
         document.addEventListener('DOMContentLoaded', () => {
             new TradingDashboard();
+            window.p2pTrading = new P2PTrading();
 
             // Navigation logic
             const navLiveTrades = document.getElementById('navLiveTrades');

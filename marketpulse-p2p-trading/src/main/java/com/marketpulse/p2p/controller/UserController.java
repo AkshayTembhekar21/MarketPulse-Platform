@@ -21,4 +21,10 @@ public class UserController {
     public User addUser(@RequestBody User user) {
         return userRepository.save(user);
     }
+
+    @GetMapping("/{id}")
+    public User getUserById(@PathVariable Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+    }
 } 

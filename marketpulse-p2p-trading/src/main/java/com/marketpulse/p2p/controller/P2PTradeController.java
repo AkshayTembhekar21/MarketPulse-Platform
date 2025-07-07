@@ -1,77 +1,102 @@
 package com.marketpulse.p2p.controller;
 
 import com.marketpulse.p2p.model.P2PTrade;
-import com.marketpulse.p2p.repository.P2PTradeRepository;
-import com.marketpulse.p2p.kafka.P2PTradeKafkaProducer;
+import com.marketpulse.p2p.service.P2PTradeService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/trades")
 public class P2PTradeController {
     @Autowired
-    private P2PTradeRepository tradeRepository;
-
-    @Autowired
-    private P2PTradeKafkaProducer kafkaProducer;
+    private P2PTradeService tradeService;
 
     @GetMapping("/{userId}")
-    public List<P2PTrade> getUserTrades(@PathVariable Long userId) {
-        return tradeRepository.findBySenderIdOrReceiverId(userId, userId);
+    public ResponseEntity<List<P2PTrade>> getUserTrades(@PathVariable Long userId) {
+        try {
+            List<P2PTrade> trades = tradeService.getUserTrades(userId);
+            return ResponseEntity.ok(trades);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{userId}/pending")
+    public ResponseEntity<List<P2PTrade>> getPendingTrades(@PathVariable Long userId) {
+        try {
+            List<P2PTrade> trades = tradeService.getPendingTrades(userId);
+            return ResponseEntity.ok(trades);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{userId}/active")
+    public ResponseEntity<List<P2PTrade>> getActiveTrades(@PathVariable Long userId) {
+        try {
+            List<P2PTrade> trades = tradeService.getActiveTrades(userId);
+            return ResponseEntity.ok(trades);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/initiate")
-    public P2PTrade initiateTrade(@RequestBody P2PTrade trade) {
-        trade.setStatus("pending");
-        trade.setCreatedAt(LocalDateTime.now());
-        trade.setUpdatedAt(LocalDateTime.now());
-        P2PTrade saved = tradeRepository.save(trade);
-        kafkaProducer.sendTradeRequest(saved);
-        return saved;
+    public ResponseEntity<P2PTrade> initiateTrade(@RequestBody P2PTrade trade) {
+        try {
+            P2PTrade saved = tradeService.initiateTrade(trade);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/{id}/negotiate")
-    public P2PTrade negotiate(@PathVariable Long id, @RequestBody String message) {
-        Optional<P2PTrade> tradeOpt = tradeRepository.findById(id);
-        if (tradeOpt.isPresent()) {
-            P2PTrade trade = tradeOpt.get();
-            trade.getNegotiationHistory().add(message);
-            trade.setUpdatedAt(LocalDateTime.now());
-            P2PTrade saved = tradeRepository.save(trade);
-            kafkaProducer.sendTradeNegotiation(saved);
-            return saved;
+    public ResponseEntity<P2PTrade> negotiate(
+            @PathVariable Long id, 
+            @RequestParam Long userId,
+            @RequestBody String message) {
+        try {
+            P2PTrade saved = tradeService.negotiate(id, userId, message);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
-        throw new RuntimeException("Trade not found");
     }
 
     @PostMapping("/{id}/accept")
-    public P2PTrade acceptTrade(@PathVariable Long id) {
-        Optional<P2PTrade> tradeOpt = tradeRepository.findById(id);
-        if (tradeOpt.isPresent()) {
-            P2PTrade trade = tradeOpt.get();
-            trade.setStatus("agreed");
-            trade.setUpdatedAt(LocalDateTime.now());
-            P2PTrade saved = tradeRepository.save(trade);
-            kafkaProducer.sendTradeConfirmation(saved);
-            return saved;
+    public ResponseEntity<P2PTrade> acceptTrade(
+            @PathVariable Long id, 
+            @RequestParam Long userId) {
+        try {
+            P2PTrade saved = tradeService.acceptTrade(id, userId);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
-        throw new RuntimeException("Trade not found");
     }
 
     @PostMapping("/{id}/reject")
-    public P2PTrade rejectTrade(@PathVariable Long id) {
-        Optional<P2PTrade> tradeOpt = tradeRepository.findById(id);
-        if (tradeOpt.isPresent()) {
-            P2PTrade trade = tradeOpt.get();
-            trade.setStatus("rejected");
-            trade.setUpdatedAt(LocalDateTime.now());
-            P2PTrade saved = tradeRepository.save(trade);
-            kafkaProducer.sendTradeNegotiation(saved);
-            return saved;
+    public ResponseEntity<P2PTrade> rejectTrade(
+            @PathVariable Long id, 
+            @RequestParam Long userId) {
+        try {
+            P2PTrade saved = tradeService.rejectTrade(id, userId);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
-        throw new RuntimeException("Trade not found");
+    }
+
+    @GetMapping("/trade/{id}")
+    public ResponseEntity<P2PTrade> getTradeById(@PathVariable Long id) {
+        try {
+            P2PTrade trade = tradeService.getTradeById(id);
+            return ResponseEntity.ok(trade);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 } 

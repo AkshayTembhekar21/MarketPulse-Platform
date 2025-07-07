@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarketPulse P2P Trading</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .trade-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .negotiation-history {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>MarketPulse P2P Trading Platform</h1>
+    
+    <div class="status" id="connectionStatus">Disconnected</div>
+    
+    <div class="container">
+        <!-- User Management -->
+        <div class="card">
+            <h2>User Management</h2>
+            <div class="form-group">
+                <label for="userId">User ID:</label>
+                <input type="number" id="userId" value="1">
+            </div>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" value="user1">
+            </div>
+            <button onclick="createUser()">Create User</button>
+            <button onclick="getUser()">Get User</button>
+        </div>
+
+        <!-- Trade Management -->
+        <div class="card">
+            <h2>Trade Management</h2>
+            <div class="form-group">
+                <label for="senderId">Sender ID:</label>
+                <input type="number" id="senderId" value="1">
+            </div>
+            <div class="form-group">
+                <label for="receiverId">Receiver ID:</label>
+                <input type="number" id="receiverId" value="2">
+            </div>
+            <div class="form-group">
+                <label for="instrument">Instrument:</label>
+                <input type="text" id="instrument" value="BTC">
+            </div>
+            <div class="form-group">
+                <label for="quantity">Quantity:</label>
+                <input type="number" id="quantity" value="1.0" step="0.1">
+            </div>
+            <div class="form-group">
+                <label for="price">Price:</label>
+                <input type="number" id="price" value="50000" step="0.01">
+            </div>
+            <div class="form-group">
+                <label for="tradeType">Trade Type:</label>
+                <select id="tradeType">
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                </select>
+            </div>
+            <button onclick="initiateTrade()">Initiate Trade</button>
+            <button onclick="getUserTrades()">Get My Trades</button>
+        </div>
+
+        <!-- Trade Negotiation -->
+        <div class="card">
+            <h2>Trade Negotiation</h2>
+            <div class="form-group">
+                <label for="tradeId">Trade ID:</label>
+                <input type="number" id="tradeId">
+            </div>
+            <div class="form-group">
+                <label for="negotiationMessage">Message:</label>
+                <textarea id="negotiationMessage" rows="3"></textarea>
+            </div>
+            <button onclick="negotiate()">Send Message</button>
+            <button onclick="acceptTrade()">Accept Trade</button>
+            <button onclick="rejectTrade()">Reject Trade</button>
+        </div>
+
+        <!-- Real-time Updates -->
+        <div class="card">
+            <h2>Real-time Updates</h2>
+            <div id="realTimeUpdates" class="negotiation-history">
+                <div class="message">Waiting for updates...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade List -->
+    <div class="card">
+        <h2>My Trades</h2>
+        <div id="tradeList"></div>
+    </div>
+
+    <script>
+        let stompClient = null;
+        const userId = document.getElementById('userId').value;
+
+        // Connect to WebSocket
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function (frame) {
+                console.log('Connected: ' + frame);
+                document.getElementById('connectionStatus').textContent = 'Connected';
+                document.getElementById('connectionStatus').className = 'status connected';
+                
+                // Subscribe to user-specific updates
+                stompClient.subscribe('/user/' + userId + '/queue/trade.updates', function (message) {
+                    const update = JSON.parse(message.body);
+                    addRealTimeUpdate(update.type + ': ' + JSON.stringify(update.data));
+                });
+                
+                stompClient.subscribe('/user/' + userId + '/queue/trade.requests', function (message) {
+                    const update = JSON.parse(message.body);
+                    addRealTimeUpdate('NEW TRADE REQUEST: ' + JSON.stringify(update.data));
+                });
+                
+                // Subscribe to general updates
+                stompClient.subscribe('/topic/trade.updates', function (message) {
+                    const update = JSON.parse(message.body);
+                    addRealTimeUpdate('GENERAL: ' + update.type + ': ' + JSON.stringify(update.data));
+                });
+            });
+        }
+
+        function addRealTimeUpdate(message) {
+            const updatesDiv = document.getElementById('realTimeUpdates');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            updatesDiv.appendChild(messageDiv);
+            updatesDiv.scrollTop = updatesDiv.scrollHeight;
+        }
+
+        // REST API calls
+        async function createUser() {
+            const userData = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('username').value + '@example.com',
+                fullName: 'User ' + document.getElementById('username').value,
+                status: 'ACTIVE'
+            };
+            
+            try {
+                const response = await fetch('/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                const user = await response.json();
+                alert('User created: ' + JSON.stringify(user));
+            } catch (error) {
+                alert('Error creating user: ' + error);
+            }
+        }
+
+        async function getUser() {
+            const userId = document.getElementById('userId').value;
+            try {
+                const response = await fetch('/users/' + userId);
+                const user = await response.json();
+                alert('User: ' + JSON.stringify(user));
+            } catch (error) {
+                alert('Error getting user: ' + error);
+            }
+        }
+
+        async function initiateTrade() {
+            const tradeData = {
+                senderId: parseInt(document.getElementById('senderId').value),
+                receiverId: parseInt(document.getElementById('receiverId').value),
+                instrument: document.getElementById('instrument').value,
+                quantity: parseFloat(document.getElementById('quantity').value),
+                price: parseFloat(document.getElementById('price').value),
+                tradeType: document.getElementById('tradeType').value,
+                description: 'P2P trade request'
+            };
+            
+            try {
+                const response = await fetch('/trades/initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tradeData)
+                });
+                const trade = await response.json();
+                document.getElementById('tradeId').value = trade.id;
+                alert('Trade initiated: ' + JSON.stringify(trade));
+                getUserTrades();
+            } catch (error) {
+                alert('Error initiating trade: ' + error);
+            }
+        }
+
+        async function getUserTrades() {
+            const userId = document.getElementById('userId').value;
+            try {
+                const response = await fetch('/trades/' + userId);
+                const trades = await response.json();
+                displayTrades(trades);
+            } catch (error) {
+                alert('Error getting trades: ' + error);
+            }
+        }
+
+        function displayTrades(trades) {
+            const tradeList = document.getElementById('tradeList');
+            tradeList.innerHTML = '';
+            
+            trades.forEach(trade => {
+                const tradeDiv = document.createElement('div');
+                tradeDiv.className = 'trade-item';
+                tradeDiv.innerHTML = `
+                    <strong>Trade #${trade.id}</strong> - ${trade.status}<br>
+                    ${trade.tradeType} ${trade.quantity} ${trade.instrument} @ $${trade.price}<br>
+                    From: ${trade.senderId} To: ${trade.receiverId}<br>
+                    Created: ${new Date(trade.createdAt).toLocaleString()}
+                `;
+                tradeList.appendChild(tradeDiv);
+            });
+        }
+
+        async function negotiate() {
+            const tradeId = document.getElementById('tradeId').value;
+            const userId = document.getElementById('userId').value;
+            const message = document.getElementById('negotiationMessage').value;
+            
+            if (!tradeId || !message) {
+                alert('Please enter trade ID and message');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/trades/${tradeId}/negotiate?userId=${userId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: message
+                });
+                const trade = await response.json();
+                alert('Negotiation sent: ' + JSON.stringify(trade));
+                document.getElementById('negotiationMessage').value = '';
+                getUserTrades();
+            } catch (error) {
+                alert('Error negotiating: ' + error);
+            }
+        }
+
+        async function acceptTrade() {
+            const tradeId = document.getElementById('tradeId').value;
+            const userId = document.getElementById('userId').value;
+            
+            if (!tradeId) {
+                alert('Please enter trade ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/trades/${tradeId}/accept?userId=${userId}`, {
+                    method: 'POST'
+                });
+                const trade = await response.json();
+                alert('Trade accepted: ' + JSON.stringify(trade));
+                getUserTrades();
+            } catch (error) {
+                alert('Error accepting trade: ' + error);
+            }
+        }
+
+        async function rejectTrade() {
+            const tradeId = document.getElementById('tradeId').value;
+            const userId = document.getElementById('userId').value;
+            
+            if (!tradeId) {
+                alert('Please enter trade ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/trades/${tradeId}/reject?userId=${userId}`, {
+                    method: 'POST'
+                });
+                const trade = await response.json();
+                alert('Trade rejected: ' + JSON.stringify(trade));
+                getUserTrades();
+            } catch (error) {
+                alert('Error rejecting trade: ' + error);
+            }
+        }
+
+        // Connect on page load
+        window.onload = function() {
+            connect();
+        };
+    </script>
+</body>
+</html> 
