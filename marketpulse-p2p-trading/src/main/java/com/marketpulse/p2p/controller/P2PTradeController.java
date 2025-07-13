@@ -46,9 +46,13 @@ public class P2PTradeController {
     @PostMapping("/initiate")
     public ResponseEntity<P2PTrade> initiateTrade(@RequestBody P2PTrade trade) {
         try {
+            System.out.println("Received trade initiation request: " + trade);
             P2PTrade saved = tradeService.initiateTrade(trade);
+            System.out.println("Trade initiated successfully: " + saved.getId());
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
+            System.err.println("Error initiating trade: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }

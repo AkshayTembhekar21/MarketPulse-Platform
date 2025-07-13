@@ -32,7 +32,6 @@ public class TradeWebSocketHandler extends TextWebSocketHandler {
 
     public void broadcastTrade(Object trade) {
         try {
-            System.out.println("📤 Broadcasting trade data: " + trade);
             String message = objectMapper.writeValueAsString(trade);
             TextMessage textMessage = new TextMessage(message);
             

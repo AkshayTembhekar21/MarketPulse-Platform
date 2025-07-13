@@ -633,13 +633,29 @@
                 };
 
                 try {
+                    console.log('Initiating trade with data:', tradeData);
                     const response = await fetch('http://localhost:8083/trades/initiate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(tradeData)
                     });
                     
-                    const trade = await response.json();
+                    console.log('Response status:', response.status);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('HTTP Error:', response.status, errorText);
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    const responseText = await response.text();
+                    console.log('Response text:', responseText);
+                    
+                    if (!responseText) {
+                        throw new Error('Empty response from server');
+                    }
+                    
+                    const trade = JSON.parse(responseText);
                     this.currentTradeId = trade.id;
                     this.addNegotiationMessage('System', `Trade #${trade.id} initiated with Partner ${partnerId}`);
                     this.loadP2PTrades();
