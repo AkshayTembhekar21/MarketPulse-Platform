@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface P2PTradeRepository extends JpaRepository<P2PTrade, Long> {
     List<P2PTrade> findBySenderIdOrReceiverId(Long senderId, Long receiverId);
+    List<P2PTrade> findByReceiverIdAndStatus(Long receiverId, String status);
+    List<P2PTrade> findBySenderIdOrReceiverIdAndStatusNot(Long senderId, Long receiverId, String status);
 } 

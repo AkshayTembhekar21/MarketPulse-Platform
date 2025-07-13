@@ -212,9 +212,9 @@
                     <div style="margin-bottom: 15px;">
                         <label for="currentUserId" style="font-weight: bold; margin-right: 10px;">Current User ID:</label>
                         <select id="currentUserId" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
-                            <option value="1">User 1</option>
-                            <option value="2">User 2</option>
-                            <option value="3">User 3</option>
+                            <option value="1">Brave Browser (User 1)</option>
+                            <option value="2">Chrome Browser (User 2)</option>
+                            <option value="3">Firefox Browser (User 3)</option>
                         </select>
                         <button onclick="p2pTrading.switchUser()" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Switch User</button>
                     </div>
@@ -222,11 +222,27 @@
                 <!-- Partner Management -->
                 <div style="margin-bottom: 20px;">
                     <h3>Trading Partners</h3>
-                    <form id="addPartnerForm" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <input type="text" id="partnerInput" placeholder="Enter partner username" style="flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
-                        <button type="submit" style="padding: 8px 16px; border-radius: 5px; border: none; background: #27ae60; color: white; font-weight: bold; cursor: pointer;">Add Partner</button>
-                    </form>
-                    <ul id="partnerList" style="list-style: none; padding-left: 0;"></ul>
+                    
+                    <!-- Existing Users Section -->
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                        <h4 style="margin-bottom: 10px;">Available Users (Click to add as partner):</h4>
+                        <div id="existingUsersList" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                    </div>
+                    
+                    <!-- Add New Partner Form -->
+                    <div style="margin-bottom: 15px;">
+                        <h4>Or Add New Partner:</h4>
+                        <form id="addPartnerForm" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" id="partnerInput" placeholder="Enter partner username" style="flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                            <button type="submit" style="padding: 8px 16px; border-radius: 5px; border: none; background: #27ae60; color: white; font-weight: bold; cursor: pointer;">Add Partner</button>
+                        </form>
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                        <h4>Your Current Partners:</h4>
+                        <ul id="partnerList" style="list-style: none; padding-left: 0;"></ul>
+                        <div id="noPartnersMessage" style="color: #666; font-style: italic; display: none;">No partners added yet. Add partners from the list above to start trading.</div>
+                    </div>
                 </div>
                 <!-- P2P Trades List -->
                 <div style="margin-bottom: 20px;">
@@ -299,7 +315,6 @@
             }
 
             onConnected() {
-                console.log('✅ Connected to WebSocket');
                 this.statusIndicator.classList.add('connected');
                 this.statusText.textContent = 'Connected';
                 this.reconnectAttempts = 0;
@@ -308,7 +323,6 @@
             onMessage(event) {
                 try {
                     const trade = JSON.parse(event.data);
-                    console.log('Received trade:', trade);
                     this.addTrade(trade);
                 } catch (error) {
                     console.error('Error parsing trade data:', error);
@@ -316,7 +330,6 @@
             }
 
             onDisconnected() {
-                console.log('❌ WebSocket disconnected');
                 this.statusIndicator.classList.remove('connected');
                 this.statusText.textContent = 'Disconnected';
                 
@@ -334,7 +347,6 @@
             }
 
             addTrade(trade) {
-                console.log('addTrade received:', trade, typeof trade);
                 if (typeof trade === 'string') {
                     try {
                         trade = JSON.parse(trade);
@@ -344,7 +356,6 @@
                     }
                 }
                 if (!trade || !trade.price || !trade.timestamp) {
-                    console.warn('Invalid trade object:', trade);
                     return;
                 }
                 // Now safe to use trade.price and trade.timestamp
@@ -368,7 +379,6 @@
                 }
 
                 const trade = this.trades[0];  // Only latest trade
-                console.log('renderTrades trade object:', trade);
                 const ticker = trade.ticker;
                 const priceFormatted = this.formatPrice(trade.price);
                 const timestamp = new Date(trade.timestamp).toLocaleString();
@@ -423,6 +433,7 @@
                 this.setupEventListeners();
                 
                 // Load initial data
+                this.loadExistingUsers();
                 this.loadPartners();
                 this.loadP2PTrades();
             }
@@ -435,7 +446,6 @@
                     this.p2pSocket = new WebSocket(wsUrl);
                     
                     this.p2pSocket.onopen = () => {
-                        console.log('✅ P2P WebSocket connected');
                         this.addNegotiationMessage('System', 'Connected to P2P trading');
                     };
                     
@@ -444,7 +454,6 @@
                     };
                     
                     this.p2pSocket.onclose = () => {
-                        console.log('❌ P2P WebSocket disconnected');
                         this.addNegotiationMessage('System', 'Disconnected from P2P trading');
                     };
                     
@@ -521,10 +530,61 @@
                 }
             }
 
+            async loadExistingUsers() {
+                try {
+                    const response = await fetch('http://localhost:8083/users');
+                    const users = await response.json();
+                    this.renderExistingUsers(users);
+                } catch (error) {
+                    console.error('Error loading existing users:', error);
+                }
+            }
+
+            renderExistingUsers(users) {
+                const existingUsersList = document.getElementById('existingUsersList');
+                existingUsersList.innerHTML = '';
+                
+                users.forEach(user => {
+                    if (user.id != this.currentUserId) { // Don't show current user
+                        const button = document.createElement('button');
+                        button.style.cssText = 'padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;';
+                        button.textContent = `${user.username} (ID: ${user.id})`;
+                        button.onclick = () => this.addExistingUserAsPartner(user);
+                        existingUsersList.appendChild(button);
+                    }
+                });
+            }
+
+            async addExistingUserAsPartner(user) {
+                try {
+                    const partnerResponse = await fetch('http://localhost:8083/partners', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: this.currentUserId,
+                            partnerId: user.id,
+                            status: 'active'
+                        })
+                    });
+                    
+                    const partner = await partnerResponse.json();
+                    this.partners.push(partner);
+                    this.renderPartners();
+                    alert(`Added ${user.username} as partner!`);
+                    
+                } catch (error) {
+                    console.error('Error adding existing user as partner:', error);
+                    alert('Error adding partner: ' + error.message);
+                }
+            }
+
             async loadPartners() {
                 try {
+                    console.log('Loading partners for user:', this.currentUserId);
                     const response = await fetch(`http://localhost:8083/partners/${this.currentUserId}`);
+                    console.log('Partner API response status:', response.status);
                     this.partners = await response.json();
+                    console.log('Loaded partners for user', this.currentUserId, ':', this.partners);
                     this.renderPartners();
                 } catch (error) {
                     console.error('Error loading partners:', error);
@@ -532,15 +592,32 @@
             }
 
             renderPartners() {
+                console.log('Rendering partners:', this.partners);
                 const partnerList = document.getElementById('partnerList');
+                const noPartnersMessage = document.getElementById('noPartnersMessage');
+                
+                if (!partnerList) {
+                    console.error('Partner list element not found!');
+                    return;
+                }
+                
                 partnerList.innerHTML = '';
                 
+                if (this.partners.length === 0) {
+                    console.log('No partners to display');
+                    noPartnersMessage.style.display = 'block';
+                    return;
+                }
+                
+                console.log('Displaying', this.partners.length, 'partners');
+                noPartnersMessage.style.display = 'none';
                 this.partners.forEach(partner => {
                     const li = document.createElement('li');
                     li.style.cssText = 'padding: 8px; margin: 5px 0; background: #e9ecef; border-radius: 5px; cursor: pointer;';
-                    li.textContent = `Partner ID: ${partner.partnerId} (${partner.status})`;
+                    li.textContent = `Partner ID: ${partner.partnerId} (${partner.status}) - Click to initiate trade`;
                     li.onclick = () => this.initiateTradeWithPartner(partner.partnerId);
                     partnerList.appendChild(li);
+                    console.log('Added partner to list:', partner.partnerId);
                 });
             }
 
@@ -721,6 +798,7 @@
                 this.renderP2PTrades();
                 
                 // Reload data for new user
+                this.loadExistingUsers();
                 this.loadPartners();
                 this.loadP2PTrades();
                 

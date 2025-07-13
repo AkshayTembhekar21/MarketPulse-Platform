@@ -44,7 +44,6 @@ public class FinnhubStreamService {
 
                 @Override
                 public void onMessage(String message) {
-                    System.out.println("📩 Incoming message: " + message);
                     // Push to Kafka
                     kafkaTemplate.send(topic, message);
                 }

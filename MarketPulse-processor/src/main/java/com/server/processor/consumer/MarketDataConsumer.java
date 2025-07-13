@@ -13,7 +13,7 @@ public class MarketDataConsumer {
 
     @PostConstruct
     public void init() {
-        System.out.println("✅ Kafka Consumer initialized and waiting for messages...");
+        // Kafka Consumer initialized and waiting for messages
     }
 
 
