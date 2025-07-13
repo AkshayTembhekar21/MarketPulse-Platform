@@ -418,9 +418,11 @@
             constructor() {
                 this.currentUserId = 1; // Default user ID for testing
                 this.currentTradeId = null;
+                this.currentTrade = null; // Store current trade details
                 this.p2pSocket = null;
                 this.partners = [];
                 this.p2pTrades = [];
+                this.refreshInterval = null; // For periodic refresh
                 
                 this.initializeP2P();
             }
@@ -436,6 +438,9 @@
                 this.loadExistingUsers();
                 this.loadPartners();
                 this.loadP2PTrades();
+                
+                // Start periodic refresh (every 10 seconds)
+                this.startPeriodicRefresh();
             }
 
             connectP2PWebSocket() {
@@ -477,13 +482,9 @@
                     this.sendNegotiationMessage();
                 });
 
-                // Accept/Reject buttons
+                // Accept button (reject button will be set dynamically)
                 document.getElementById('acceptTradeBtn').addEventListener('click', () => {
                     this.acceptTrade();
-                });
-
-                document.getElementById('rejectTradeBtn').addEventListener('click', () => {
-                    this.rejectTrade();
                 });
             }
 
@@ -668,6 +669,7 @@
 
             async loadP2PTrades() {
                 try {
+                    // Always fetch all trades for the current user (sender or receiver, any status)
                     const response = await fetch(`http://localhost:8083/trades/${this.currentUserId}`);
                     this.p2pTrades = await response.json();
                     this.renderP2PTrades();
@@ -680,15 +682,43 @@
                 const p2pTradesList = document.getElementById('p2pTradesList');
                 p2pTradesList.innerHTML = '';
                 
+                // Show all trades for the current user, regardless of status
                 this.p2pTrades.forEach(trade => {
                     const li = document.createElement('li');
-                    li.style.cssText = 'padding: 10px; margin: 8px 0; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;';
+                    
+                    // Determine if this is a new trade (created in last 30 seconds)
+                    const tradeCreated = new Date(trade.createdAt);
+                    const now = new Date();
+                    const isNewTrade = (now - tradeCreated) < 30000; // 30 seconds
+                    
+                    // Style based on trade status and recency
+                    let borderColor = '#007bff';
+                    let backgroundColor = '#f8f9fa';
+                    
+                    if (isNewTrade) {
+                        borderColor = '#28a745';
+                        backgroundColor = '#d4edda';
+                    } else if (trade.status === 'pending') {
+                        borderColor = '#ffc107';
+                        backgroundColor = '#fff3cd';
+                    } else if (trade.status === 'rejected') {
+                        borderColor = '#dc3545';
+                        backgroundColor = '#f8d7da';
+                    } else if (trade.status === 'agreed') {
+                        borderColor = '#28a745';
+                        backgroundColor = '#d4edda';
+                    }
+                    
+                    li.style.cssText = `padding: 10px; margin: 8px 0; background: ${backgroundColor}; border-radius: 8px; border-left: 4px solid ${borderColor};`;
+                    
+                    const newTradeBadge = isNewTrade ? '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">NEW</span>' : '';
+                    
                     li.innerHTML = `
-                        <strong>Trade #${trade.id}</strong> - ${trade.status}<br>
+                        <strong>Trade #${trade.id}</strong> - ${trade.status} ${newTradeBadge}<br>
                         ${trade.tradeType} ${trade.quantity} ${trade.instrument} @ $${trade.price}<br>
                         From: ${trade.senderId} To: ${trade.receiverId}<br>
                         Created: ${new Date(trade.createdAt).toLocaleString()}
-                        <button onclick="p2pTrading.selectTrade(${trade.id})" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Select</button>
+                        <button onclick="p2pTrading.selectTrade(${trade.id})" style="margin-left: 10px; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Select</button>
                     `;
                     p2pTradesList.appendChild(li);
                 });
@@ -705,6 +735,9 @@
                     const response = await fetch(`http://localhost:8083/trades/trade/${tradeId}`);
                     const trade = await response.json();
                     
+                    // Store the current trade details
+                    this.currentTrade = trade;
+                    
                     // Display negotiation history
                     const negotiationBox = document.getElementById('negotiationBox');
                     negotiationBox.innerHTML = '';
@@ -712,6 +745,9 @@
                     trade.negotiationHistory.forEach(message => {
                         this.addNegotiationMessage('History', message);
                     });
+                    
+                    // Update action buttons based on user role
+                    this.updateActionButtons();
                     
                 } catch (error) {
                     console.error('Error loading trade details:', error);
@@ -784,11 +820,36 @@
                 }
             }
 
+            updateActionButtons() {
+                const rejectBtn = document.getElementById('rejectTradeBtn');
+                
+                // Always show "Reject" button for everyone
+                rejectBtn.textContent = 'Reject';
+                rejectBtn.onclick = () => this.rejectTrade();
+            }
+
             addNegotiationMessage(sender, message) {
                 const negotiationBox = document.getElementById('negotiationBox');
                 const messageDiv = document.createElement('div');
-                messageDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #e9ecef; border-radius: 5px;';
-                messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+                const timestamp = new Date().toLocaleTimeString();
+                
+                // Style based on sender type
+                let backgroundColor = '#e9ecef';
+                let borderColor = '#007bff';
+                
+                if (sender === 'P2P Update') {
+                    backgroundColor = '#d4edda';
+                    borderColor = '#28a745';
+                } else if (sender === 'System') {
+                    backgroundColor = '#fff3cd';
+                    borderColor = '#ffc107';
+                } else if (sender.startsWith('User ')) {
+                    backgroundColor = '#d1ecf1';
+                    borderColor = '#17a2b8';
+                }
+                
+                messageDiv.style.cssText = `margin: 5px 0; padding: 8px; background: ${backgroundColor}; border-radius: 5px; border-left: 3px solid ${borderColor};`;
+                messageDiv.innerHTML = `<strong>${sender}</strong> <small style="color: #6c757d;">(${timestamp})</small><br>${message}`;
                 negotiationBox.appendChild(messageDiv);
                 negotiationBox.scrollTop = negotiationBox.scrollHeight;
             }
@@ -796,9 +857,39 @@
             handleP2PMessage(data) {
                 try {
                     const message = JSON.parse(data);
-                    this.addNegotiationMessage('P2P Update', JSON.stringify(message));
+                    
+                    // Check if this is a P2P trade update
+                    if (message.id && message.senderId && message.receiverId) {
+                        // This is a P2P trade object
+                        const trade = message;
+                        
+                        // Always refresh the trade list for new trades or updates
+                        this.loadP2PTrades();
+                        
+                        // Show the latest negotiation message if any
+                        if (trade.negotiationHistory && trade.negotiationHistory.length > 0) {
+                            const latestMessage = trade.negotiationHistory[trade.negotiationHistory.length - 1];
+                            this.addNegotiationMessage('P2P Update', latestMessage);
+                        } else {
+                            this.addNegotiationMessage('P2P Update', `Trade #${trade.id} ${trade.status}`);
+                        }
+                        
+                        // If this is a new trade for the current user, highlight it
+                        if (trade.senderId === this.currentUserId || trade.receiverId === this.currentUserId) {
+                            // Set this as the current trade if user is involved
+                            if (!this.currentTradeId) {
+                                this.currentTradeId = trade.id;
+                                this.currentTrade = trade;
+                                this.addNegotiationMessage('System', `New trade #${trade.id} received! Click 'Select' to view details.`);
+                            }
+                        }
+                    } else {
+                        // Fallback for other message types
+                        this.addNegotiationMessage('P2P Update', JSON.stringify(message));
+                    }
                 } catch (error) {
                     console.error('Error parsing P2P message:', error);
+                    this.addNegotiationMessage('P2P Update', data);
                 }
             }
 
@@ -806,6 +897,10 @@
                 const userIdSelect = document.getElementById('currentUserId');
                 this.currentUserId = parseInt(userIdSelect.value);
                 this.currentTradeId = null;
+                this.currentTrade = null; // Clear current trade
+                
+                // Stop current refresh interval
+                this.stopPeriodicRefresh();
                 
                 // Clear current data and reload
                 this.partners = [];
@@ -822,6 +917,25 @@
                 const negotiationBox = document.getElementById('negotiationBox');
                 negotiationBox.innerHTML = '';
                 this.addNegotiationMessage('System', `Switched to User ${this.currentUserId}`);
+                
+                // Reset action buttons
+                this.updateActionButtons();
+                
+                // Restart periodic refresh for new user
+                this.startPeriodicRefresh();
+            }
+
+            startPeriodicRefresh() {
+                this.refreshInterval = setInterval(() => {
+                    this.loadP2PTrades();
+                }, 10000); // Refresh every 10 seconds
+            }
+
+            stopPeriodicRefresh() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                    this.refreshInterval = null;
+                }
             }
         }
 

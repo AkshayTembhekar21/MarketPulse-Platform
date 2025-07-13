@@ -143,8 +143,8 @@ public class P2PTradeService {
     }
     
     private void validateUserCanReject(P2PTrade trade, Long userId) {
-        if (!trade.getReceiverId().equals(userId)) {
-            throw new RuntimeException("Only receiver can reject the trade");
+        if (!trade.getSenderId().equals(userId) && !trade.getReceiverId().equals(userId)) {
+            throw new RuntimeException("User not authorized to reject this trade");
         }
         if (!"pending".equals(trade.getStatus())) {
             throw new RuntimeException("Can only reject pending trades");
