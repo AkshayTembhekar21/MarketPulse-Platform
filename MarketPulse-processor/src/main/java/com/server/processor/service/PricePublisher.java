@@ -26,7 +26,6 @@ public class PricePublisher {
             String priceToSend = latestPrice.getAndSet(null);
             if (priceToSend != null) {
                 kafkaTemplate.send("trade-updates", priceToSend);
-                System.out.println("✅ Sent throttled price to Kafka: " + priceToSend);
             }
         }, 0, 3, TimeUnit.SECONDS);
     }

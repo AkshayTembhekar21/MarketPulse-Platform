@@ -14,7 +14,6 @@ public class TradeUpdateConsumer {
 
     @KafkaListener(topics = "trade-updates", groupId = "ui-desk-consumer-group")
     public void consumeTradeUpdate(String message) {
-        System.out.println("📊 Received trade update: " + message);
         // Forward the trade update to WebSocket clients
         webSocketHandler.broadcastTrade(message);
     }
