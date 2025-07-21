@@ -30,7 +30,8 @@ interface P2PTrade {
 }
 
 const P2PTrading: React.FC = () => {
-  const [currentUserId] = useState(1); // Default user ID for testing
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<number>(1);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [existingUsers, setExistingUsers] = useState<User[]>([]);
   const [p2pTrades, setP2PTrades] = useState<P2PTrade[]>([]);
@@ -38,11 +39,51 @@ const P2PTrading: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [partnerInput, setPartnerInput] = useState('');
 
+  // Fetch all users for the dropdown
+  useEffect(() => {
+    fetch('http://localhost:8083/users')
+      .then(res => res.json())
+      .then(setAllUsers);
+  }, []);
+
+  // Reload data when currentUserId changes
   useEffect(() => {
     loadExistingUsers();
     loadPartners();
     loadP2PTrades();
-  }, []);
+  }, [currentUserId]);
+
+  // Poll for new trades every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadP2PTrades();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentUserId]);
+
+  // Accept trade handler
+  const acceptTrade = async (tradeId: number) => {
+    try {
+      await fetch(`http://localhost:8083/trades/${tradeId}/accept?userId=${currentUserId}`, {
+        method: 'POST'
+      });
+      loadP2PTrades();
+    } catch (error) {
+      alert('Error accepting trade');
+    }
+  };
+
+  // Reject trade handler
+  const rejectTrade = async (tradeId: number) => {
+    try {
+      await fetch(`http://localhost:8083/trades/${tradeId}/reject?userId=${currentUserId}`, {
+        method: 'POST'
+      });
+      loadP2PTrades();
+    } catch (error) {
+      alert('Error rejecting trade');
+    }
+  };
 
   const loadExistingUsers = async () => {
     try {
@@ -182,7 +223,14 @@ const P2PTrading: React.FC = () => {
     return (now.getTime() - tradeCreated.getTime()) < 30000; // 30 seconds
   };
 
+  const isExpired = (trade: P2PTrade) => {
+    const tradeCreated = new Date(trade.createdAt);
+    const now = new Date();
+    return (now.getTime() - tradeCreated.getTime()) > 60000 && trade.status === 'pending';
+  };
+
   const getStatusColor = (trade: P2PTrade) => {
+    if (isExpired(trade)) return '#888';
     if (isNewTrade(trade)) return '#28a745';
     if (trade.status === 'pending') return '#ffc107';
     if (trade.status === 'rejected') return '#dc3545';
@@ -192,6 +240,22 @@ const P2PTrading: React.FC = () => {
 
   return (
     <>
+      {/* User Switcher Dropdown */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ fontWeight: 600, marginRight: 8 }}>Select User:</label>
+        <select
+          value={currentUserId}
+          onChange={e => setCurrentUserId(Number(e.target.value))}
+          style={{ padding: '8px', borderRadius: '6px', fontSize: '14px' }}
+        >
+          {allUsers.map(user => (
+            <option key={user.id} value={user.id}>
+              {user.username} (ID: {user.id})
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Upper Section: Trading Partners Management */}
       <div style={{ height: '50vh', background: 'rgba(255, 255, 255, 0.95)', borderRadius: '15px', padding: '20px', marginBottom: '20px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
         <h2 style={{ color: '#2c3e50', marginBottom: '20px' }}>🤝 Trading Partners</h2>
@@ -285,10 +349,12 @@ const P2PTrading: React.FC = () => {
                 p2pTrades.map(trade => {
                   const isSender = trade.senderId === currentUserId;
                   const isReceiver = trade.receiverId === currentUserId;
+                  const expired = isExpired(trade);
                   const counterparty = isSender ? `To: User ${trade.receiverId}` : `From: User ${trade.senderId}`;
                   const statusColor = getStatusColor(trade);
                   const newTradeBadge = isNewTrade(trade) ? 
                     <span style={{ background: '#28a745', color: 'white', padding: '2px 6px', borderRadius: '3px', fontSize: '10px', marginLeft: '5px' }}>NEW</span> : '';
+                  const statusText = expired ? 'expired' : trade.status;
 
                   return (
                     <tr key={trade.id}>
@@ -298,7 +364,7 @@ const P2PTrading: React.FC = () => {
                       <td style={{ padding: '12px' }}>{trade.quantity}</td>
                       <td style={{ padding: '12px', fontWeight: 'bold' }}>${trade.price.toLocaleString()}</td>
                       <td style={{ padding: '12px', color: statusColor, fontWeight: 'bold' }}>
-                        {trade.status} {newTradeBadge}
+                        {statusText} {newTradeBadge}
                       </td>
                       <td style={{ padding: '12px' }}>{counterparty}</td>
                       <td style={{ padding: '12px' }}>
@@ -309,12 +375,22 @@ const P2PTrading: React.FC = () => {
                           View
                         </button>
                         {isReceiver && trade.status === 'pending' && (
-                          <button 
-                            onClick={() => showTradeDetails(trade.id)}
-                            style={{ padding: '8px 16px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                          >
-                            Respond
-                          </button>
+                          <>
+                            <button
+                              onClick={() => acceptTrade(trade.id)}
+                              style={{ padding: '8px 16px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '6px', cursor: expired ? 'not-allowed' : 'pointer', fontWeight: 'bold', marginRight: '8px', opacity: expired ? 0.5 : 1 }}
+                              disabled={expired}
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => rejectTrade(trade.id)}
+                              style={{ padding: '8px 16px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor: expired ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: expired ? 0.5 : 1 }}
+                              disabled={expired}
+                            >
+                              Reject
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>
