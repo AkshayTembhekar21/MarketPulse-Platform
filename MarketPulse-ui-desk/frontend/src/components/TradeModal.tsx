@@ -25,7 +25,28 @@ const TradeModal: React.FC<TradeModalProps> = ({ trade, currentUserId, onClose }
   const [counterMessage, setCounterMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState(60); // 1 minute timer
 
+  // Helper to check if trade is expired
+  const isExpired = (trade: P2PTrade) => {
+    const tradeCreated = new Date(trade.createdAt);
+    const now = new Date();
+    return (now.getTime() - tradeCreated.getTime()) > 60000 && trade.status === 'pending';
+  };
+
+  // Only show timer if trade is pending and not expired
+  const showTimer = trade.status === 'pending' && !isExpired(trade);
+
+  // Close modal if trade is no longer pending or is expired
   useEffect(() => {
+    if (trade.status !== 'pending' || isExpired(trade)) {
+      onClose();
+    }
+    // eslint-disable-next-line
+  }, [trade.status, trade.createdAt]);
+
+  // Timer logic (only runs if showTimer is true)
+  useEffect(() => {
+    if (!showTimer) return;
+    setTimeLeft(60 - Math.floor((Date.now() - new Date(trade.createdAt).getTime()) / 1000));
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -35,9 +56,9 @@ const TradeModal: React.FC<TradeModalProps> = ({ trade, currentUserId, onClose }
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
-  }, [onClose]);
+    // eslint-disable-next-line
+  }, [showTimer, trade.createdAt, onClose]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -146,16 +167,18 @@ const TradeModal: React.FC<TradeModalProps> = ({ trade, currentUserId, onClose }
         }}>
           <h2 style={{ color: '#2c3e50', margin: 0 }}>Trade Details</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{
-              background: '#e74c3c',
-              color: 'white',
-              padding: '5px 10px',
-              borderRadius: '15px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}>
-              {formatTime(timeLeft)}
-            </span>
+            {showTimer && (
+              <span style={{
+                background: '#e74c3c',
+                color: 'white',
+                padding: '5px 10px',
+                borderRadius: '15px',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                {`${Math.floor(timeLeft / 60).toString().padStart(2, '0')}:${(timeLeft % 60).toString().padStart(2, '0')}`}
+              </span>
+            )}
             <button 
               onClick={onClose}
               style={{
@@ -216,74 +239,76 @@ const TradeModal: React.FC<TradeModalProps> = ({ trade, currentUserId, onClose }
         </div>
 
         {/* Counter Offer Section */}
-        <div style={{
-          marginBottom: '20px',
-          padding: '15px',
-          background: '#f8f9fa',
-          borderRadius: '8px'
-        }}>
-          <h3 style={{ color: '#34495e', marginBottom: '10px' }}>Make Counter Offer</h3>
+        {showTimer && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '15px',
+            background: '#f8f9fa',
+            borderRadius: '8px'
+          }}>
+            <h3 style={{ color: '#34495e', marginBottom: '10px' }}>Make Counter Offer</h3>
           
-          {/* Price Counter Offer */}
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', color: '#495057', fontWeight: 500 }}>
-              New Price:
-            </label>
-            <input 
-              type="number" 
-              value={counterPrice}
-              onChange={(e) => setCounterPrice(e.target.value)}
-              placeholder="Enter new price" 
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '2px solid #e9ecef',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
-            />
-          </div>
+            {/* Price Counter Offer */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', color: '#495057', fontWeight: 500 }}>
+                New Price:
+              </label>
+              <input 
+                type="number" 
+                value={counterPrice}
+                onChange={(e) => setCounterPrice(e.target.value)}
+                placeholder="Enter new price" 
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
 
-          {/* Message */}
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', color: '#495057', fontWeight: 500 }}>
-              Message:
-            </label>
-            <textarea 
-              value={counterMessage}
-              onChange={(e) => setCounterMessage(e.target.value)}
-              placeholder="Enter your message" 
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '2px solid #e9ecef',
-                borderRadius: '6px',
-                fontSize: '14px',
-                resize: 'vertical'
-              }}
-            />
-          </div>
+            {/* Message */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', color: '#495057', fontWeight: 500 }}>
+                Message:
+              </label>
+              <textarea 
+                value={counterMessage}
+                onChange={(e) => setCounterMessage(e.target.value)}
+                placeholder="Enter your message" 
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
 
-          <button 
-            onClick={handleSendCounterOffer}
-            style={{
-              padding: '10px 20px',
-              background: '#f39c12',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'background 0.2s'
-            }}
-          >
-            Send Counter Offer
-          </button>
-        </div>
+            <button 
+              onClick={handleSendCounterOffer}
+              style={{
+                padding: '10px 20px',
+                background: '#f39c12',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+            >
+              Send Counter Offer
+            </button>
+          </div>
+        )}
 
         {/* Action Buttons */}
-        {isReceiver && trade.status === 'pending' && (
+        {isReceiver && showTimer && (
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
             <button 
               onClick={handleAcceptTrade}
