@@ -499,7 +499,7 @@
             connectP2PWebSocket() {
                 try {
                     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const wsUrl = `${protocol}//${window.location.host}/ws/p2p`;
+                    const wsUrl = `${protocol}//${window.location.hostname}:8084/ws/p2p`;
                     
                     this.p2pSocket = new WebSocket(wsUrl);
                     
@@ -561,7 +561,7 @@
 
                 try {
                     // First create the partner user
-                    const userResponse = await fetch('http://localhost:8083/users', {
+                    const userResponse = await fetch('http://localhost:8084/api/p2p/users', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -575,7 +575,7 @@
                     const newUser = await userResponse.json();
                     
                     // Then add as partner
-                    const partnerResponse = await fetch('http://localhost:8083/partners', {
+                    const partnerResponse = await fetch('http://localhost:8084/api/p2p/partners', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -598,7 +598,7 @@
 
             async loadExistingUsers() {
                 try {
-                    const response = await fetch('http://localhost:8083/users');
+                    const response = await fetch('http://localhost:8084/api/p2p/users');
                     const users = await response.json();
                     this.renderExistingUsers(users);
                 } catch (error) {
@@ -623,7 +623,7 @@
 
             async addExistingUserAsPartner(user) {
                 try {
-                    const partnerResponse = await fetch('http://localhost:8083/partners', {
+                    const partnerResponse = await fetch('http://localhost:8084/api/p2p/partners', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -647,7 +647,7 @@
             async loadPartners() {
                 try {
                     console.log('Loading partners for user:', this.currentUserId);
-                    const response = await fetch(`http://localhost:8083/partners/${this.currentUserId}`);
+                    const response = await fetch(`http://localhost:8084/api/p2p/partners/${this.currentUserId}`);
                     console.log('Partner API response status:', response.status);
                     this.partners = await response.json();
                     console.log('Loaded partners for user', this.currentUserId, ':', this.partners);
@@ -700,7 +700,7 @@
 
                 try {
                     console.log('Initiating trade with data:', tradeData);
-                    const response = await fetch('http://localhost:8083/trades/initiate', {
+                    const response = await fetch('http://localhost:8084/api/p2p/trades/initiate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(tradeData)
@@ -735,7 +735,7 @@
             async loadP2PTrades() {
                 try {
                     // Always fetch all trades for the current user (sender or receiver, any status)
-                    const response = await fetch(`http://localhost:8083/trades/${this.currentUserId}`);
+                    const response = await fetch(`http://localhost:8084/api/p2p/trades/${this.currentUserId}`);
                     this.p2pTrades = await response.json();
                     this.renderP2PTrades();
                 } catch (error) {
@@ -804,7 +804,7 @@
 
             async loadTradeForModal(tradeId) {
                 try {
-                    const response = await fetch(`http://localhost:8083/trades/trade/${tradeId}`);
+                    const response = await fetch(`http://localhost:8084/api/p2p/trades/trade/${tradeId}`);
                     const trade = await response.json();
                     
                     // Populate modal with trade details
@@ -884,7 +884,7 @@
 
             async loadTradeDetails(tradeId) {
                 try {
-                    const response = await fetch(`http://localhost:8083/trades/trade/${tradeId}`);
+                    const response = await fetch(`http://localhost:8084/api/p2p/trades/trade/${tradeId}`);
                     const trade = await response.json();
                     
                     // Store the current trade details
@@ -918,7 +918,7 @@
                 try {
                     // First send the counter offer message
                     const message = `Counter offer: $${counterPrice}${counterMessage ? ' - ' + counterMessage : ''}`;
-                    const response = await fetch(`http://localhost:8083/trades/${this.currentTradeId}/negotiate?userId=${this.currentUserId}`, {
+                    const response = await fetch(`http://localhost:8084/api/p2p/trades/${this.currentTradeId}/negotiate?userId=${this.currentUserId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: message
@@ -945,7 +945,7 @@
                 }
 
                 try {
-                    const response = await fetch(`http://localhost:8083/trades/${this.currentTradeId}/accept?userId=${this.currentUserId}`, {
+                    const response = await fetch(`http://localhost:8084/api/p2p/trades/${this.currentTradeId}/accept?userId=${this.currentUserId}`, {
                         method: 'POST'
                     });
                     
@@ -970,7 +970,7 @@
                 }
 
                 try {
-                    const response = await fetch(`http://localhost:8083/trades/${this.currentTradeId}/reject?userId=${this.currentUserId}`, {
+                    const response = await fetch(`http://localhost:8084/api/p2p/trades/${this.currentTradeId}/reject?userId=${this.currentUserId}`, {
                         method: 'POST'
                     });
                     
