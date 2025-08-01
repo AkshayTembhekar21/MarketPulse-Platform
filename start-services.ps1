@@ -50,25 +50,29 @@ Write-Host "Waiting for infrastructure to be ready..." -ForegroundColor Yellow
 Start-Sleep -Seconds 10
 
 # Start services
-Start-Service "Market Data Service" "MarketPulse-market-data" 8080
+Start-Service "UI Desk Service" "MarketPulse-ui-desk" 8080
 Start-Sleep -Seconds 2
 
-Start-Service "Processor Service" "MarketPulse-processor" 8081
+Start-Service "Market Data Service" "MarketPulse-market-data" 8081
 Start-Sleep -Seconds 2
 
-Start-Service "UI Desk Service" "MarketPulse-ui-desk" 8082
+Start-Service "Processor Service" "MarketPulse-processor" 8082
 Start-Sleep -Seconds 2
 
 Start-Service "P2P Trading Service" "marketpulse-p2p-trading" 8083
+Start-Sleep -Seconds 2
+
+Start-Service "Gateway Service" "marketpulse-gateway" 8084
 
 Write-Host ""
 Write-Host "SUCCESS: All services started!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Access your services at:" -ForegroundColor Cyan
-Write-Host "   UI Dashboard: http://localhost:8082" -ForegroundColor White
+Write-Host "   UI Dashboard: http://localhost:8080" -ForegroundColor White
+Write-Host "   Gateway API: http://localhost:8084" -ForegroundColor White
 Write-Host "   Kafka UI: http://localhost:9000" -ForegroundColor White
-Write-Host "   Market Data API: http://localhost:8080" -ForegroundColor White
-Write-Host "   Processor API: http://localhost:8081" -ForegroundColor White
+Write-Host "   Market Data API: http://localhost:8081" -ForegroundColor White
+Write-Host "   Processor API: http://localhost:8082" -ForegroundColor White
 Write-Host "   P2P Trading API: http://localhost:8083" -ForegroundColor White
 Write-Host ""
 Write-Host "Press any key to exit..."
